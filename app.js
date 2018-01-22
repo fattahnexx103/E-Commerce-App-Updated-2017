@@ -9,7 +9,7 @@ var flash = require('connect-flash');
 var mongoose = require('mongoose');
 var session = require('express-session');
 var validator = require('express-validator');
-
+var MongoStore = require('connect-mongo')(session);
 var index = require('./routes/index');
 //import express handlebars
 var handleBars = require('express-handlebars');
@@ -45,16 +45,21 @@ app.use(validator());
 app.use(cookieParser());
 //config fr session
 //saveUninitialized is false because if it is true then it would be a session even if we didnt do anything
-app.use(session({secret: 'mysupersecret',resave: false, saveUninitialized: false})); //if true then it is saved on each server
-//flash messages are stored in sessions and pop up to user and then go away such as errors
-app.use(flash());
+app.use(session({secret: 'mysupersecret',
+resave: false,
+saveUninitialized: false,
+store: new MongoStore({mongooseConnection: mongoose.connection}), //put the session in mongodb using mongoose
+cookie: {maxAge: 180 * 60 * 1000} //180 minutes is the session expiration timer
+})); //if true then it is saved on each server
+app.use(flash());//flash messages are stored in sessions and pop up to user and then go away such as errors
 app.use(passport.initialize());
 app.use(passport.session());
 
-//path middleware
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'))); //path middleware
+
 app.use((req,res,next) =>{
   res.locals.login = req.isAuthenticated();
+  res.locals.session = req.session; //we can access sessions direct from template
   next();
 }); //this is used for navigation bar on top right to change to user logins so we use the req.locals.login to check isAuthenticated
 
